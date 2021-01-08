@@ -1,0 +1,15 @@
+apiVersion: app.ydzs.io/v1beta1
+kind: AppService
+metadata:
+  name: appservice-sample
+spec:
+  # Add fields here
+  size: 3
+  image: nginx
+  envs:
+  ports:
+    - prot: 80
+      targetPort: 80
+      nodePort: 80
+
+
