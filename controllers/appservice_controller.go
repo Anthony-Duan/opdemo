@@ -36,6 +36,8 @@ type AppServiceReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=app.ydzs.io,resources=appservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=app.ydzs.io,resources=appservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=app.ydzs.io,resources=appservices/finalizers,verbs=update
@@ -66,11 +68,10 @@ func (r *AppServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// createOrUpdate
 	// 观察当前状态与期望状态进行对比
 	//	调谐 获取到当前的一个状态 然后和我们期望的状态进行对比
-
 	var deploy appsv1.Deployment
 	deploy.Name = appService.Name
 	deploy.Namespace = appService.Namespace
-	or, err := ctrl.CreateOrUpdate(ctx, r, &deploy, func() error {
+	or, err := ctrl.CreateOrUpdate(ctx, r.Client, &deploy, func() error {
 		MutateDeployment(&appService, &deploy)
 		return controllerutil.SetControllerReference(&appService, &deploy, r.Scheme)
 	})
@@ -82,7 +83,7 @@ func (r *AppServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	var svc corev1.Service
 	svc.Name = appService.Name
 	svc.Namespace = appService.Namespace
-	or, err = ctrl.CreateOrUpdate(ctx, r, &svc, func() error {
+	or, err = ctrl.CreateOrUpdate(ctx, r.Client, &svc, func() error {
 		MutateService(&appService, &svc)
 		return controllerutil.SetControllerReference(&appService, &svc, r.Scheme)
 	})
@@ -145,5 +146,7 @@ func newContainers(app *appv1beta1.AppService) []corev1.Container {
 func (r *AppServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appv1beta1.AppService{}).
+		Owns(&appsv1.Deployment{}). //不添加删除 deployment 时不会监听到事件
+		Owns(&corev1.Service{}).
 		Complete(r)
 }
